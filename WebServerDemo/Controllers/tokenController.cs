@@ -18,24 +18,9 @@ namespace WebServerDemo.Controllers
         public static string userA_access_token = string.Empty;
         public static long userA_expires_timestamp = 0;
 
-        string HCAMKEY = "AABBCCDD";
-        int expires_in = 3600;//有效期一小时
-
-        public static long nowTimeStamp()
-        {
-            TimeSpan ts = DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, 0);
-            return Convert.ToInt64(ts.TotalSeconds);
-        }
-
-        private static bool isValidRequest(long timestamp)//请求有效期+5-5分钟
-        {
-            long nowts = nowTimeStamp();
-            return (nowts + 300 >= timestamp) && (nowts - timestamp < 300);
-        }
-
         private bool authenticate(string appid, string timestamp, string sign, out string error)
         {
-            if (!isValidRequest(Convert.ToInt64(timestamp, 10)))
+            if (!AuthenticateUtil.isValidRequest(Convert.ToInt64(timestamp, 10)))
             {
                 error = "请求超时";
                 return false;
@@ -51,36 +36,15 @@ namespace WebServerDemo.Controllers
             string1Builder.Append("appid=").Append(appid).Append("&")
               .Append("timestamp=").Append(timestamp);
 
-            HMACSHA1 myHMACSHA1 = new HMACSHA1(Encoding.UTF8.GetBytes(HCAMKEY));
-            byte[] byteText = myHMACSHA1.ComputeHash(Encoding.UTF8.GetBytes(string1Builder.ToString()));
-            string Sign = Convert.ToBase64String(byteText);
-            if (Sign.Equals(sign))
-            {
-                error = string.Empty;
-                return true;
-            }
-            else
+            string Sign = AuthenticateUtil.HMAC(string1Builder.ToString());
+            if (!Sign.Equals(sign))
             {
                 error = "sign无效";
                 return false;
             }
-        }
 
-        private static string[] strs = new string[]
-                         {
-                                  "a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z",
-                                  "A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"
-                         };
-        public static string newNoncestr()
-        {
-            Random r = new Random();
-            var sb = new StringBuilder();
-            var length = strs.Length;
-            for (int i = 0; i < 15; i++)
-            {
-                sb.Append(strs[r.Next(length - 1)]);
-            }
-            return sb.ToString();
+            error = string.Empty;
+            return true;
         }
 
         public JObject Get()
@@ -101,11 +65,11 @@ namespace WebServerDemo.Controllers
 
             JObject ret = new JObject();
             ret.Add("code", 0);
-            userA_access_token = newNoncestr();
-            userA_expires_timestamp = nowTimeStamp() + expires_in;
+            userA_access_token = AuthenticateUtil.newToken();
+            userA_expires_timestamp = AuthenticateUtil.nowTimeStamp() + AuthenticateUtil.token_expires_in;
 
             ret.Add("access_token", userA_access_token);
-            ret.Add("expires_in", expires_in);
+            ret.Add("expires_in", AuthenticateUtil.token_expires_in);
             return ret;
         }
     }

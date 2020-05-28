@@ -13,23 +13,9 @@ namespace WebServerDemo.Controllers
 {
     public class test01Controller : ApiController
     {
-        string HCAMKEY = "AABBCCDD";
-
-        public static long nowTimeStamp()
-        {
-            TimeSpan ts = DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, 0);
-            return Convert.ToInt64(ts.TotalSeconds);
-        }
-
-        private static bool isValidRequest(long timestamp)//请求有效期+5-5分钟
-        {
-            long nowts = nowTimeStamp();
-            return (nowts + 300 >= timestamp) && (nowts - timestamp < 300);
-        }
-
         private bool authenticate(string nonce, string timestamp, string sign, out string error)
         {
-            if (!isValidRequest(Convert.ToInt64(timestamp, 10)))
+            if (!AuthenticateUtil.isValidRequest(Convert.ToInt64(timestamp, 10)))
             {
                 error = "请求超时";
                 return false;
@@ -39,19 +25,15 @@ namespace WebServerDemo.Controllers
             string1Builder.Append("nonce=").Append(nonce).Append("&")
               .Append("timestamp=").Append(timestamp);
 
-            HMACSHA1 myHMACSHA1 = new HMACSHA1(Encoding.UTF8.GetBytes(HCAMKEY));
-            byte[] byteText = myHMACSHA1.ComputeHash(Encoding.UTF8.GetBytes(string1Builder.ToString()));
-            string Sign = Convert.ToBase64String(byteText);
-            if (Sign.Equals(sign))
-            {
-                error = string.Empty;
-                return true;
-            }
-            else
+            string Sign = AuthenticateUtil.HMAC(string1Builder.ToString());
+            if (!Sign.Equals(sign))
             {
                 error = "sign无效";
                 return false;
             }
+
+            error = string.Empty;
+            return true;
         }
 
         public JObject Post()
